@@ -1,7 +1,7 @@
 # Review Extractor - Requirements
 
 ## Objective
-Build a modular Python script that extracts code review comments and diff context from pull requests across multiple Git platforms (Bitbucket Server, GitHub, GitLab) to prepare data for AI-powered code review automation.
+Build a modular Go application that extracts code review comments and diff context from pull requests across multiple Git platforms (Bitbucket Server, GitHub, GitLab) to prepare data for AI-powered code review automation.
 
 ## Core Functionality
 
@@ -22,26 +22,43 @@ Build a modular Python script that extracts code review comments and diff contex
 
 ### Project Structure
 ```
-review_extractor/
-├── main.py                     # Entry point with config loading
+review-extractor/
+├── main.go                     # Entry point with config loading
+├── cmd/                        # CLI commands
+│   └── extract.go
 ├── config/                     # Per-customer configuration
-│   ├── customer-a.config
-│   └── customer-b.config
-├── adapters/                   # Platform-specific API logic
-│   ├── bitbucket.py
-│   ├── github.py
-│   └── gitlab.py
-├── core/                       # Shared business logic
-│   ├── extractor.py           # Main extraction orchestration
-│   ├── formatter.py           # Output formatting
-│   └── utils.py               # Shared utilities
-├── tests/                      # Unit tests for all modules
-└── requirements.txt
+│   ├── customer-a.yaml
+│   └── customer-b.yaml
+├── internal/
+│   ├── adapters/              # Platform-specific API logic
+│   │   ├── bitbucket/
+│   │   │   ├── client.go
+│   │   │   └── extractor.go
+│   │   ├── github/
+│   │   │   ├── client.go
+│   │   │   └── extractor.go
+│   │   └── gitlab/
+│   │       ├── client.go
+│   │       └── extractor.go
+│   ├── core/                  # Shared business logic
+│   │   ├── extractor.go       # Main extraction orchestration
+│   │   ├── formatter.go       # Output formatting
+│   │   └── types.go           # Shared data structures
+│   └── utils/                 # Shared utilities
+│       ├── http.go
+│       └── config.go
+├── pkg/                       # Public API interfaces
+│   └── models/
+│       └── review.go
+├── test/                      # Integration tests
+├── go.mod
+├── go.sum
+└── Makefile
 ```
 
 ### Configuration Format (YAML)
 ```yaml
-# customer-a.config
+# customer-a.yaml
 api_token: "your-api-token-here"
 output_file: "customer-a-reviews.json"
 
@@ -82,9 +99,11 @@ Structured data ready for AI consumption:
 ## Technical Requirements
 
 ### Dependencies
-- `requests` - HTTP API calls
-- `PyYAML` - Configuration parsing
-- `pytest` - Unit testing
+- Go 1.21+ - Core language and standard library
+- `gopkg.in/yaml.v3` - YAML configuration parsing
+- `github.com/stretchr/testify` - Testing framework
+- `github.com/spf13/cobra` - CLI framework (optional)
+- Standard library `net/http` - HTTP API calls
 
 ### API Integration
 - Handle pagination for large repositories
@@ -92,13 +111,21 @@ Structured data ready for AI consumption:
 - Support for different authentication methods (tokens, basic auth)
 
 ### Quality Assurance
-- Unit tests for each adapter and core module
-- Modular design for easy platform addition
+- Unit tests using Go's built-in testing framework
+- Integration tests for each adapter
+- Modular design with clear interfaces for easy platform addition
 - Git version control with incremental commits
 
 ## Usage
 ```bash
-python main.py --config config/customer-a.config
+# Build the application
+go build -o review-extractor ./cmd
+
+# Run extraction
+./review-extractor --config config/customer-a.yaml
+
+# Alternative with go run
+go run ./cmd --config config/customer-a.yaml
 ```
 
 ## Future Enhancements (Optional)
@@ -116,8 +143,9 @@ The extracted data will be used to:
 - Generate consistency guidelines for code review processes
 
 ## Success Criteria
-1. Successfully extract comments from all three platforms
+1. Successfully extract comments from all three platforms using Go
 2. Include meaningful diff context for each comment
-3. Generate clean, structured output suitable for AI processing
+3. Generate clean, structured JSON output suitable for AI processing
 4. Configurable per customer with multiple repositories
-5. Maintainable, tested codebase with clear separation of concerns
+5. Maintainable, tested Go codebase with clear separation of concerns
+6. Efficient memory usage and concurrent processing where appropriate

@@ -1,6 +1,6 @@
 # Review Extractor
 
-A modular Python tool for extracting code review comments and diff context from pull requests across multiple Git hosting platforms. Designed to prepare structured data for AI-powered code review automation.
+A modular Go application for extracting code review comments and diff context from pull requests across multiple Git hosting platforms. Designed to prepare structured data for AI-powered code review automation.
 
 ## 🚀 Features
 
@@ -13,7 +13,7 @@ A modular Python tool for extracting code review comments and diff context from 
 
 ## 📋 Requirements
 
-- Python 3.8+
+- Go 1.21 or higher
 - API access to your Git hosting platforms
 - Valid API tokens or credentials
 
@@ -25,9 +25,14 @@ git clone <repository-url>
 cd review-extractor
 ```
 
-2. Install dependencies:
+2. Initialize Go module and install dependencies:
 ```bash
-pip install -r requirements.txt
+go mod tidy
+```
+
+3. Build the application:
+```bash
+go build -o review-extractor ./cmd
 ```
 
 ## ⚙️ Configuration
@@ -35,7 +40,7 @@ pip install -r requirements.txt
 Create a YAML configuration file for each customer in the `config/` directory:
 
 ```yaml
-# config/customer-a.config
+# config/customer-a.yaml
 api_token: "your-api-token-here"
 output_file: "customer-a-reviews.json"
 
@@ -63,7 +68,14 @@ repositories:
 Extract reviews for a specific customer:
 
 ```bash
-python main.py --config config/customer-a.config
+# Using the built binary
+./review-extractor --config config/customer-a.yaml
+
+# Or using go run
+go run ./cmd --config config/customer-a.yaml
+
+# With additional flags
+./review-extractor --config config/customer-a.yaml --output reviews.json --verbose
 ```
 
 The tool will:
@@ -108,18 +120,32 @@ The tool generates JSON output with the following structure:
 ## 🏗️ Architecture
 
 ```
-review_extractor/
-├── main.py                 # Entry point and CLI interface
-├── config/                 # Customer configuration files
-├── adapters/               # Platform-specific API implementations
-│   ├── bitbucket.py       # Bitbucket Server adapter
-│   ├── github.py          # GitHub adapter
-│   └── gitlab.py          # GitLab adapter
-├── core/                   # Core business logic
-│   ├── extractor.py       # Main extraction orchestration
-│   ├── formatter.py       # Output formatting and statistics
-│   └── utils.py           # Shared utilities and helpers
-└── tests/                  # Unit tests
+review-extractor/
+├── main.go                     # Application entry point
+├── cmd/                        # CLI commands and flags
+│   └── extract.go
+├── config/                     # Customer configuration files
+│   ├── customer-a.yaml
+│   └── customer-b.yaml
+├── internal/                   # Private application code
+│   ├── adapters/              # Platform-specific implementations
+│   │   ├── bitbucket/         # Bitbucket Server adapter
+│   │   ├── github/            # GitHub adapter
+│   │   └── gitlab/            # GitLab adapter
+│   ├── core/                  # Core business logic
+│   │   ├── extractor.go       # Main extraction orchestration
+│   │   ├── formatter.go       # Output formatting and statistics
+│   │   └── types.go           # Shared data structures
+│   └── utils/                 # Shared utilities and helpers
+│       ├── http.go
+│       └── config.go
+├── pkg/                       # Public API interfaces
+│   └── models/
+│       └── review.go
+├── test/                      # Integration tests
+├── go.mod                     # Go module definition
+├── go.sum                     # Dependency checksums
+└── Makefile                   # Build automation
 ```
 
 ## 🔧 API Authentication
@@ -141,13 +167,31 @@ review_extractor/
 Run the test suite:
 
 ```bash
-pytest tests/
+go test ./...
 ```
 
 Run tests with coverage:
 
 ```bash
-pytest --cov=. tests/
+go test -cover ./...
+
+# Generate detailed coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+Run specific package tests:
+
+```bash
+go test ./internal/adapters/github
+```
+
+Build and test using Makefile:
+
+```bash
+make test
+make build
+make clean
 ```
 
 ## 📈 Statistics & Analysis
@@ -196,15 +240,15 @@ The structured output is designed for AI workflows:
 - Check repository access rights
 - Ensure correct API endpoints for self-hosted instances
 
-**Rate limiting**
-- The tool respects API rate limits automatically
-- For large repositories, extraction may take time
-- Consider running during off-peak hours
+**Performance issues**
+- Go's efficient memory management handles large datasets well
+- Use goroutines for concurrent API calls when appropriate
+- Monitor memory usage with `go tool pprof` for optimization
 
-**Missing comments or PRs**
-- Verify repository URLs are correct
-- Check if PRs are accessible with the provided credentials
-- Some platforms may limit historical data access
+**Build issues**
+- Ensure Go 1.21+ is installed: `go version`
+- Run `go mod tidy` to resolve dependency issues
+- Check `go.sum` file integrity
 
 ### Support
 
