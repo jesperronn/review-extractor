@@ -35,6 +35,57 @@ go mod tidy
 go build -o review-extractor ./cmd
 ```
 
+## 🧪 Testing
+
+The project uses Go's built-in testing framework with the testify package for assertions. We aim for high test coverage (95%+) to ensure reliability.
+
+### Running Tests
+
+Run all tests:
+```bash
+go test ./...
+```
+
+Run tests with coverage:
+```bash
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+
+# View coverage in browser
+go tool cover -html=coverage.out
+```
+
+Run specific package tests:
+```bash
+go test ./pkg/models
+go test ./internal/adapters/github
+```
+
+### Using Makefile
+
+The project includes a Makefile for common tasks:
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+make coverage
+
+# Build the application
+make build
+
+# Clean build artifacts
+make clean
+```
+
+### Test Coverage Requirements
+
+- Minimum coverage: 95%
+- All new code must include tests
+- Integration tests for platform adapters
+- Mock external dependencies in unit tests
+
 ## ⚙️ Configuration
 
 Create a YAML configuration file for each customer in the `config/` directory:
@@ -161,38 +212,6 @@ review-extractor/
 ### GitLab
 - Create a personal access token with `read_repository` scope
 - For self-hosted GitLab, verify API endpoint accessibility
-
-## 🧪 Testing
-
-Run the test suite:
-
-```bash
-go test ./...
-```
-
-Run tests with coverage:
-
-```bash
-go test -cover ./...
-
-# Generate detailed coverage report
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-```
-
-Run specific package tests:
-
-```bash
-go test ./internal/adapters/github
-```
-
-Build and test using Makefile:
-
-```bash
-make test
-make build
-make clean
-```
 
 ## 📈 Statistics & Analysis
 
