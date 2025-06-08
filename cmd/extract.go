@@ -36,7 +36,7 @@ var extractCmd = &cobra.Command{
 
 		// Create extractors
 		extractors := make(map[models.Provider]core.Extractor)
-		
+
 		// Add GitHub extractor
 		extractors[models.ProviderGitHub] = github.NewExtractor(config.APIToken)
 
@@ -65,6 +65,51 @@ func init() {
 	extractCmd.Flags().StringVar(&configFile, "config", "", "Path to configuration file")
 	extractCmd.Flags().StringVar(&outputFile, "output", "", "Path to output file (overrides config)")
 	extractCmd.MarkFlagRequired("config")
+}
+
+// NewExtractCommand creates and returns the extract command
+func NewExtractCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "extract",
+		Short: "Extract code reviews from repositories",
+		Long:  `Extract code reviews from repositories based on the provided configuration.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			configPath, _ := cmd.Flags().GetString("config")
+			outputPath, _ := cmd.Flags().GetString("output")
+
+			// Load configuration
+			config, err := loadConfig(configPath)
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+
+			// Create extractors map
+			extractors := map[models.Provider]core.Extractor{
+				models.ProviderGitHub: github.NewExtractor(config.GitHub.Token),
+			}
+
+			// Create extractor
+			extractor := core.NewReviewExtractor(config, extractors)
+
+			// Extract reviews
+			result, err := extractor.ExtractReviews(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("failed to extract reviews: %w", err)
+			}
+
+			// Write output
+			if err := writeOutput(result, outputPath); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().String("config", "config.yaml", "Path to configuration file")
+	cmd.Flags().String("output", "reviews.json", "Path to output file")
+
+	return cmd
 }
 
 // loadConfig loads the configuration from a YAML file
@@ -102,4 +147,4 @@ func writeOutput(result *models.ExtractionResult, path string) error {
 	}
 
 	return nil
-} 
+}

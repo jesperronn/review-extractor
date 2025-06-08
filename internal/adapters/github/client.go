@@ -3,14 +3,12 @@ package github
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"time"
 
 	"github.com/google/go-github/v45/github"
 	"golang.org/x/oauth2"
 )
 
-// Client wraps the GitHub API client
+// Client implements the ClientInterface for GitHub API operations
 type Client struct {
 	client *github.Client
 }
@@ -115,4 +113,4 @@ func (c *Client) GetPullRequestDiff(ctx context.Context, owner, repo string, prN
 	}
 
 	return diff, nil
-} 
+}

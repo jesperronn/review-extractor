@@ -32,11 +32,11 @@ func NewReviewExtractor(config *models.Config, extractors map[models.Provider]Ex
 // ExtractReviews processes all configured repositories and returns the combined results
 func (re *ReviewExtractor) ExtractReviews(ctx context.Context) (*models.ExtractionResult, error) {
 	var (
-		wg            sync.WaitGroup
-		mu            sync.Mutex
-		allReviews    []models.Review
-		errorChan     = make(chan error, len(re.config.Repositories))
-		reviewsChan   = make(chan []models.Review, len(re.config.Repositories))
+		wg          sync.WaitGroup
+		mu          sync.Mutex
+		allReviews  []models.Review
+		errorChan   = make(chan error, len(re.config.Repositories))
+		reviewsChan = make(chan []models.Review, len(re.config.Repositories))
 	)
 
 	// Process each repository concurrently
@@ -92,8 +92,8 @@ func (re *ReviewExtractor) ExtractReviews(ctx context.Context) (*models.Extracti
 		ExtractionDate:        time.Now(),
 		TotalComments:         len(allReviews),
 		RepositoriesProcessed: len(re.config.Repositories),
-		Reviews:              allReviews,
-		Statistics:           stats,
+		Reviews:               allReviews,
+		Statistics:            stats,
 	}, nil
 }
 
@@ -114,7 +114,7 @@ func generateStatistics(reviews []models.Review) models.Statistics {
 	filesWithMostComments := getTopN(fileCount, 5)
 
 	return models.Statistics{
-		MostActiveReviewers:    mostActiveReviewers,
+		MostActiveReviewers:   mostActiveReviewers,
 		FilesWithMostComments: filesWithMostComments,
 		// Note: CommonCommentTypes would require NLP analysis
 		// This is a placeholder for future enhancement
@@ -125,7 +125,7 @@ func generateStatistics(reviews []models.Review) models.Statistics {
 // getTopN returns the top N keys from a map based on their values
 func getTopN(counts map[string]int, n int) []string {
 	if n <= 0 {
-		return nil
+		return []string{}
 	}
 
 	type kv struct {
@@ -150,4 +150,4 @@ func getTopN(counts map[string]int, n int) []string {
 	}
 
 	return result
-} 
+}

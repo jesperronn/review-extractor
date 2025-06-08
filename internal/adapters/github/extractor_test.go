@@ -6,41 +6,37 @@ import (
 	"time"
 
 	"github.com/google/go-github/v45/github"
+	"github.com/jesper/review-extractor/pkg/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-// MockClient is a mock implementation of the GitHub client
+// MockClient implements the GitHub client interface for testing
 type MockClient struct {
-	mock.Mock
+	prs      []*github.PullRequest
+	comments []*github.PullRequestComment
+	reviews  []*github.PullRequestReview
+	diff     string
 }
 
 func (m *MockClient) GetPullRequests(ctx context.Context, owner, repo string) ([]*github.PullRequest, error) {
-	args := m.Called(ctx, owner, repo)
-	return args.Get(0).([]*github.PullRequest), args.Error(1)
+	return m.prs, nil
 }
 
 func (m *MockClient) GetPullRequestComments(ctx context.Context, owner, repo string, prNumber int) ([]*github.PullRequestComment, error) {
-	args := m.Called(ctx, owner, repo, prNumber)
-	return args.Get(0).([]*github.PullRequestComment), args.Error(1)
+	return m.comments, nil
 }
 
 func (m *MockClient) GetPullRequestReviews(ctx context.Context, owner, repo string, prNumber int) ([]*github.PullRequestReview, error) {
-	args := m.Called(ctx, owner, repo, prNumber)
-	return args.Get(0).([]*github.PullRequestReview), args.Error(1)
+	return m.reviews, nil
 }
 
 func (m *MockClient) GetPullRequestDiff(ctx context.Context, owner, repo string, prNumber int) (string, error) {
-	args := m.Called(ctx, owner, repo, prNumber)
-	return args.String(0), args.Error(1)
+	return m.diff, nil
 }
 
 func TestExtractReviews(t *testing.T) {
-	// Create mock client
-	mockClient := new(MockClient)
-
-	// Create test data
-	pr := &github.PullRequest{
+	now := time.Now()
+	mockPR := &github.PullRequest{
 		Number: github.Int(1),
 		Title:  github.String("Test PR"),
 		User: &github.User{
@@ -48,114 +44,139 @@ func TestExtractReviews(t *testing.T) {
 		},
 	}
 
-	comment := &github.PullRequestComment{
+	mockComment := &github.PullRequestComment{
 		ID:        github.Int64(1),
 		Body:      github.String("Test comment"),
 		Path:      github.String("test.go"),
 		Line:      github.Int(10),
 		User:      &github.User{Login: github.String("reviewer")},
-		CreatedAt: &github.Timestamp{Time: time.Now()},
+		CreatedAt: &now,
 	}
 
-	review := &github.PullRequestReview{
+	mockReview := &github.PullRequestReview{
 		ID:          github.Int64(1),
 		Body:        github.String("Test review"),
 		User:        &github.User{Login: github.String("reviewer")},
-		SubmittedAt: &github.Timestamp{Time: time.Now()},
+		SubmittedAt: &now,
 	}
 
-	// Set up expectations
-	mockClient.On("GetPullRequests", mock.Anything, "testowner", "testrepo").Return([]*github.PullRequest{pr}, nil)
-	mockClient.On("GetPullRequestComments", mock.Anything, "testowner", "testrepo", 1).Return([]*github.PullRequestComment{comment}, nil)
-	mockClient.On("GetPullRequestReviews", mock.Anything, "testowner", "testrepo", 1).Return([]*github.PullRequestReview{review}, nil)
-	mockClient.On("GetPullRequestDiff", mock.Anything, "testowner", "testrepo", 1).Return("test diff", nil)
+	mockClient := &MockClient{
+		prs:      []*github.PullRequest{mockPR},
+		comments: []*github.PullRequestComment{mockComment},
+		reviews:  []*github.PullRequestReview{mockReview},
+		diff:     "test diff",
+	}
 
-	// Create extractor with mock client
-	extractor := &Extractor{client: mockClient}
+	extractor := &Extractor{
+		client: mockClient,
+	}
 
-	// Test extraction
-	reviews, err := extractor.ExtractReviews(context.Background(), "https://github.com/testowner/testrepo")
+	reviews, err := extractor.ExtractReviews(context.Background(), "https://github.com/test/repo")
 	assert.NoError(t, err)
 	assert.Len(t, reviews, 2) // One comment and one review
 
 	// Verify comment
-	assert.Equal(t, 1, reviews[0].PRID)
-	assert.Equal(t, "Test PR", reviews[0].PRTitle)
-	assert.Equal(t, "testuser", reviews[0].PRAuthor)
-	assert.Equal(t, "testrepo", reviews[0].Repository)
-	assert.Equal(t, "1", reviews[0].CommentID)
-	assert.Equal(t, "reviewer", reviews[0].CommentAuthor)
-	assert.Equal(t, "Test comment", reviews[0].CommentText)
-	assert.Equal(t, "test.go", reviews[0].FilePath)
-	assert.Equal(t, 10, reviews[0].LineNumber)
+	assert.Equal(t, models.Review{
+		PRID:           1,
+		PRTitle:        "Test PR",
+		PRAuthor:       "testuser",
+		Repository:     "repo",
+		Provider:       models.ProviderGitHub,
+		CommentID:      "1",
+		CommentAuthor:  "reviewer",
+		CommentText:    "Test comment",
+		CommentCreated: now,
+		FilePath:       "test.go",
+		LineNumber:     10,
+		DiffContext:    "test diff",
+	}, reviews[0])
 
 	// Verify review
-	assert.Equal(t, 1, reviews[1].PRID)
-	assert.Equal(t, "Test PR", reviews[1].PRTitle)
-	assert.Equal(t, "testuser", reviews[1].PRAuthor)
-	assert.Equal(t, "testrepo", reviews[1].Repository)
-	assert.Equal(t, "1", reviews[1].CommentID)
-	assert.Equal(t, "reviewer", reviews[1].CommentAuthor)
-	assert.Equal(t, "Test review", reviews[1].CommentText)
+	assert.Equal(t, models.Review{
+		PRID:           1,
+		PRTitle:        "Test PR",
+		PRAuthor:       "testuser",
+		Repository:     "repo",
+		Provider:       models.ProviderGitHub,
+		CommentID:      "1",
+		CommentAuthor:  "reviewer",
+		CommentText:    "Test review",
+		CommentCreated: now,
+		FilePath:       "",
+		LineNumber:     0,
+		DiffContext:    "",
+	}, reviews[1])
 }
 
 func TestParseGitHubURL(t *testing.T) {
 	tests := []struct {
-		name     string
-		url      string
-		owner    string
-		repo     string
-		hasError bool
+		name      string
+		url       string
+		wantOwner string
+		wantRepo  string
+		wantErr   bool
 	}{
 		{
-			name:     "valid URL",
-			url:      "https://github.com/testowner/testrepo",
-			owner:    "testowner",
-			repo:     "testrepo",
-			hasError: false,
+			name:      "valid URL",
+			url:       "https://github.com/test/repo",
+			wantOwner: "test",
+			wantRepo:  "repo",
+			wantErr:   false,
 		},
 		{
-			name:     "invalid URL format",
-			url:      "https://github.com/testowner",
-			owner:    "",
-			repo:     "",
-			hasError: true,
+			name:    "invalid URL",
+			url:     "https://github.com/test",
+			wantErr: true,
 		},
 		{
-			name:     "invalid domain",
-			url:      "https://gitlab.com/testowner/testrepo",
-			owner:    "",
-			repo:     "",
-			hasError: true,
+			name:    "non-github URL",
+			url:     "https://gitlab.com/test/repo",
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			owner, repo, err := parseGitHubURL(tt.url)
-			if tt.hasError {
+			if tt.wantErr {
 				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.owner, owner)
-				assert.Equal(t, tt.repo, repo)
+				return
 			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantOwner, owner)
+			assert.Equal(t, tt.wantRepo, repo)
 		})
 	}
 }
 
 func TestExtractDiffContext(t *testing.T) {
-	diff := `diff --git a/test.go b/test.go
-index abc123..def456 100644
---- a/test.go
-+++ b/test.go
-@@ -10,6 +10,7 @@ func main() {
- 	fmt.Println("Hello")
-+	fmt.Println("World")
- 	return
- }`
+	tests := []struct {
+		name       string
+		diff       string
+		filePath   string
+		lineNumber int
+		want       string
+	}{
+		{
+			name:       "exact match",
+			diff:       "diff --git a/test.go b/test.go\n@@ -10,7 +10,7 @@\n line1\n line2\n line3\n",
+			filePath:   "test.go",
+			lineNumber: 10,
+			want:       "line1\nline2\nline3",
+		},
+		{
+			name:       "no match",
+			diff:       "diff --git a/other.go b/other.go\n@@ -1,1 +1,1 @@\nline1",
+			filePath:   "test.go",
+			lineNumber: 10,
+			want:       "",
+		},
+	}
 
-	context := extractDiffContext(diff, "test.go", 11)
-	assert.Contains(t, context, "fmt.Println(\"Hello\")")
-	assert.Contains(t, context, "fmt.Println(\"World\")")
-} 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractDiffContext(tt.diff, tt.filePath, tt.lineNumber)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

@@ -3,16 +3,23 @@ package github
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
-	"time"
 
+	"github.com/google/go-github/v45/github"
 	"github.com/jesper/review-extractor/pkg/models"
 )
 
+// ClientInterface defines the interface for GitHub API operations
+type ClientInterface interface {
+	GetPullRequests(ctx context.Context, owner, repo string) ([]*github.PullRequest, error)
+	GetPullRequestComments(ctx context.Context, owner, repo string, prNumber int) ([]*github.PullRequestComment, error)
+	GetPullRequestReviews(ctx context.Context, owner, repo string, prNumber int) ([]*github.PullRequestReview, error)
+	GetPullRequestDiff(ctx context.Context, owner, repo string, prNumber int) (string, error)
+}
+
 // Extractor implements the core.Extractor interface for GitHub
 type Extractor struct {
-	client *Client
+	client ClientInterface
 }
 
 // NewExtractor creates a new GitHub extractor
@@ -94,7 +101,7 @@ func (e *Extractor) ExtractReviews(ctx context.Context, repoURL string) ([]model
 				CommentCreated: review.GetSubmittedAt(),
 				// Note: Reviews don't have file/line context by default
 				FilePath:    "",
-				LineNumber: 0,
+				LineNumber:  0,
 				DiffContext: "",
 			}
 			allReviews = append(allReviews, reviewModel)
@@ -125,21 +132,21 @@ func parseGitHubURL(url string) (owner, repo string, err error) {
 func extractDiffContext(diff, filePath string, lineNumber int) string {
 	// Split diff into files
 	fileDiffs := strings.Split(diff, "diff --git")
-	
+
 	// Find the relevant file diff
 	for _, fileDiff := range fileDiffs {
 		if strings.Contains(fileDiff, filePath) {
 			// Split into lines
 			lines := strings.Split(fileDiff, "\n")
-			
+
 			// Find the context around the line
 			start := max(0, lineNumber-3)
 			end := min(len(lines), lineNumber+3)
-			
+
 			return strings.Join(lines[start:end], "\n")
 		}
 	}
-	
+
 	return ""
 }
 
@@ -155,4 +162,4 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-} 
+}
