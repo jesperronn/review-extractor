@@ -1,21 +1,143 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build
-printf '\n==> Building...\n'
-go build ./...
+# Global variables for controlling execution
+run_build=true
+run_lint=true
+run_test=true
 
-# Lint
-printf '\n==> Linting...\n'
-if ! command -v golangci-lint >/dev/null 2>&1; then
-    printf 'golangci-lint not found. Please install it first:\n'
-    printf '  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest\n'
-    exit 1
-fi
-golangci-lint run ./...
+# Function to display usage information
+show_usage() {
+    cat << EOF
+Usage: $0 [OPTIONS]
 
-# Test
-printf '\n==> Testing...\n'
-go test -v -coverprofile=coverage.out ./...
+A Go project build pipeline script that handles building, linting, and testing.
 
-printf '\nAll checks passed!\n' 
+Options:
+    --build         Enable build step (default)
+    --skip-build    Skip the build step
+    --lint          Enable linting step (default)
+    --skip-lint     Skip the linting step
+    --test          Enable testing step (default)
+    --skip-test     Skip the testing step
+    -h, --help      Show this help message
+
+Examples:
+    $0                      # Run all steps
+    $0 --skip-lint          # Skip only linting
+    $0 --skip-build --test  # Skip build, run lint and test
+
+EOF
+}
+
+# Function to build the Go project
+run_build_step() {
+    if [[ "$run_build" == false ]]; then
+        printf '\n==> Skipping build...\n'
+        return
+    fi
+    
+    printf '\n==> Building Go project...\n'
+    go build ./...
+}
+
+# Function to run linting
+run_lint_step() {
+    if [[ "$run_lint" == false ]]; then
+        printf '\n==> Skipping linting...\n'
+        return
+    fi
+    
+    printf '\n==> Running linter...\n'
+    
+    if ! command -v golangci-lint >/dev/null 2>&1; then
+        printf 'Error: golangci-lint not found.\n'
+        printf 'Please install it first:\n'
+        printf '  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest\n'
+        exit 1
+    fi
+    
+    golangci-lint run ./...
+}
+
+# Function to run tests
+run_test_step() {
+    if [[ "$run_test" == false ]]; then
+        printf '\n==> Skipping testing...\n'
+        return
+    fi
+    
+    printf '\n==> Running tests...\n'
+    go test -v -coverprofile=coverage.out ./...
+}
+
+# Function to display completion message
+show_completion() {
+    printf '\n✅ Pipeline completed successfully!\n'
+}
+
+# Function to parse command line arguments
+parse_args() {
+  # Initialize default values
+  run_build=true
+  run_lint=true
+  run_test=true
+  
+  # Parse command line arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --build)
+        run_build=true
+        shift
+        ;;
+      --skip-build)
+        run_build=false
+        shift
+        ;;
+      --lint)
+        run_lint=true
+        shift
+        ;;
+      --skip-lint)
+        run_lint=false
+        shift
+        ;;
+      --test)
+        run_test=true
+        shift
+        ;;
+      --skip-test)
+        run_test=false
+        shift
+        ;;
+      -h|--help)
+        show_usage
+        exit 0
+        ;;
+      *)
+        printf "Error: Unknown option '$1'\n\n"
+        show_usage
+        exit 1
+        ;;
+    esac
+  done
+}
+
+# Execute the complete build pipeline
+run_pipeline() {
+    printf "🚀 Starting Go project pipeline...\n"
+    
+    run_build_step
+    run_lint_step
+    run_test_step
+    show_completion
+}
+
+# Main entry point
+main() {
+  parse_args "$@"
+  run_pipeline
+}
+
+# Execute main function with all arguments
+main "$@"

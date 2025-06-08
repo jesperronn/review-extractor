@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# bin/setup
+# This script sets up the development environment for the Review Extractor project.
+# It handles:
+# - Downloading Go dependencies
+# - Installing required tools (golangci-lint)
+# - Setting up environment variables
+# - Verifying the setup
+
+# Print a section header
+print_section() {
+    printf "\n==> %s\n" "$1"
+}
+
+# Check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Ensure GOPATH/bin is in PATH
+ensure_gopath_in_path() {
+    local gopath_bin
+    gopath_bin="$(go env GOPATH)/bin"
+    if [[ ":$PATH:" != *":$gopath_bin:"* ]]; then
+        print_section "Adding GOPATH/bin to PATH"
+        export PATH="$gopath_bin:$PATH"
+        printf "Added %s to PATH\n" "$gopath_bin"
+    fi
+}
+
+# Download Go dependencies
+download_dependencies() {
+    print_section "Downloading Go dependencies"
+    go mod download
+    go mod tidy
+}
+
+# Install development tools
+install_tools() {
+    print_section "Installing development tools"
+    
+    # Install golangci-lint if not present
+    if ! command_exists golangci-lint; then
+        printf "Installing golangci-lint...\n"
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    else
+        printf "golangci-lint is already installed\n"
+    fi
+}
+
+# Verify the setup
+verify_setup() {
+    print_section "Verifying setup"
+    
+    # Check Go version
+    printf "Go version: %s\n" "$(go version)"
+    
+    # Check golangci-lint
+    if command_exists golangci-lint; then
+        printf "golangci-lint version: %s\n" "$(golangci-lint --version)"
+    else
+        printf "Warning: golangci-lint not found in PATH\n"
+    fi
+    
+    # Check if we can build the project
+    printf "\nTesting build...\n"
+    go build ./...
+}
+
+# Main execution
+main() {
+    print_section "Setting up Review Extractor development environment"
+    
+    # Ensure we're in the project root
+    if [[ ! -f "go.mod" ]]; then
+        printf "Error: go.mod not found. Please run this script from the project root.\n"
+        exit 1
+    fi
+    
+    ensure_gopath_in_path
+    download_dependencies
+    install_tools
+    verify_setup
+    
+    print_section "Setup complete!"
+    printf "\nYou can now run:\n"
+    printf "  ./bin/test    # to run tests and linting\n"
+}
+
+# Run the script
+main 

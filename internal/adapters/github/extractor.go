@@ -3,19 +3,11 @@ package github
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/google/go-github/v45/github"
 	"github.com/jesper/review-extractor/pkg/models"
 )
-
-// ClientInterface defines the interface for GitHub API operations
-type ClientInterface interface {
-	GetPullRequests(ctx context.Context, owner, repo string) ([]*github.PullRequest, error)
-	GetPullRequestComments(ctx context.Context, owner, repo string, prNumber int) ([]*github.PullRequestComment, error)
-	GetPullRequestReviews(ctx context.Context, owner, repo string, prNumber int) ([]*github.PullRequestReview, error)
-	GetPullRequestDiff(ctx context.Context, owner, repo string, prNumber int) (string, error)
-}
 
 // Extractor implements the core.Extractor interface for GitHub
 type Extractor struct {
@@ -140,31 +132,64 @@ func extractDiffContext(diff, filePath string, lineNumber int) string {
 	// Find the relevant file diff
 	for _, fileDiff := range fileDiffs {
 		if strings.Contains(fileDiff, filePath) {
-			// Split into lines and remove empty lines
-			var lines []string
-			for _, line := range strings.Split(fileDiff, "\n") {
-				if line != "" {
-					lines = append(lines, line)
+			// Split into lines
+			lines := strings.Split(fileDiff, "\n")
+
+			// Find the hunk that contains our line
+			var currentLine int
+			var inTargetHunk bool
+			var contextLines []string
+
+			for _, line := range lines {
+				// Skip empty lines
+				if line == "" {
+					continue
+				}
+
+				// Check for hunk header
+				if strings.HasPrefix(line, "@@") {
+					// Parse the hunk header to get the starting line
+					parts := strings.Split(line, " ")
+					if len(parts) >= 2 {
+						lineInfo := strings.Split(parts[1], ",")
+						if len(lineInfo) >= 1 {
+							// Remove the + or - from the line number
+							lineNum := strings.TrimLeft(lineInfo[0], "+-")
+							if num, err := strconv.Atoi(lineNum); err == nil {
+								currentLine = num
+								inTargetHunk = false
+							}
+						}
+					}
+					continue
+				}
+
+				// Skip diff header lines
+				if strings.HasPrefix(line, "diff --git") || strings.HasPrefix(line, "index ") ||
+					strings.HasPrefix(line, "---") || strings.HasPrefix(line, "+++") {
+					continue
+				}
+
+				// Count lines in the hunk
+				if !strings.HasPrefix(line, " ") {
+					currentLine++
+				}
+
+				// If we're in the target line's hunk, collect context
+				if currentLine >= lineNumber-3 && currentLine <= lineNumber+3 {
+					inTargetHunk = true
+					// Remove the + or - prefix and trim spaces
+					cleanLine := strings.TrimSpace(strings.TrimLeft(line, "+- "))
+					contextLines = append(contextLines, cleanLine)
+				} else if inTargetHunk {
+					// We've passed the context window
+					break
 				}
 			}
 
-			// Find the context around the line
-			// Note: lineNumber is 1-based, but we need to account for diff headers
-			// and find the actual line in the diff
-			contextStart := max(0, lineNumber-3)
-			contextEnd := min(len(lines), lineNumber+3)
-
-			if contextStart >= len(lines) {
-				return ""
+			if len(contextLines) > 0 {
+				return strings.Join(contextLines, "\n")
 			}
-
-			// Remove leading spaces from each line
-			var cleanedLines []string
-			for _, line := range lines[contextStart:contextEnd] {
-				cleanedLines = append(cleanedLines, strings.TrimSpace(line))
-			}
-
-			return strings.Join(cleanedLines, "\n")
 		}
 	}
 

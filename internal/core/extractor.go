@@ -52,11 +52,11 @@ func (e *ReviewExtractor) ExtractReviews(ctx context.Context) (*models.Extractio
 
 	// Create result
 	result := &models.ExtractionResult{
-                Reviews:               allReviews,
-                Statistics:            stats,
-                ExtractedAt:           time.Now(),
-                TotalComments:         len(allReviews),
-                RepositoriesProcessed: len(e.config.Repositories),
+		Reviews:               allReviews,
+		Statistics:            stats,
+		ExtractedAt:           time.Now(),
+		TotalComments:         len(allReviews),
+		RepositoriesProcessed: len(e.config.Repositories),
 	}
 
 	return result, nil
