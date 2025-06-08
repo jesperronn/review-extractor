@@ -158,17 +158,52 @@ func TestExtractDiffContext(t *testing.T) {
 		want       string
 	}{
 		{
-			name:       "exact match",
-			diff:       "diff --git a/test.go b/test.go\n@@ -10,7 +10,7 @@\n line1\n line2\n line3\n",
+			name: "exact match",
+			diff: `diff --git a/test.go b/test.go
+@@ -10,7 +10,7 @@
+ line1
+ line2
+ line3
+ line4
+ line5
+ line6
+ line7`,
 			filePath:   "test.go",
 			lineNumber: 10,
-			want:       "line1\nline2\nline3",
+			want:       "line1\nline2\nline3\nline4\nline5\nline6\nline7",
 		},
 		{
-			name:       "no match",
-			diff:       "diff --git a/other.go b/other.go\n@@ -1,1 +1,1 @@\nline1",
+			name: "no match",
+			diff: `diff --git a/other.go b/other.go
+@@ -1,1 +1,1 @@
+line1`,
 			filePath:   "test.go",
 			lineNumber: 10,
+			want:       "",
+		},
+		{
+			name:       "empty diff",
+			diff:       "",
+			filePath:   "test.go",
+			lineNumber: 10,
+			want:       "",
+		},
+		{
+			name: "invalid line number",
+			diff: `diff --git a/test.go b/test.go
+@@ -1,1 +1,1 @@
+line1`,
+			filePath:   "test.go",
+			lineNumber: 0,
+			want:       "",
+		},
+		{
+			name: "line number out of range",
+			diff: `diff --git a/test.go b/test.go
+@@ -1,1 +1,1 @@
+line1`,
+			filePath:   "test.go",
+			lineNumber: 100,
 			want:       "",
 		},
 	}

@@ -275,3 +275,89 @@ For issues and questions:
 1. Check the troubleshooting section
 2. Review configuration examples
 3. Open an issue with detailed error information
+
+## Development
+
+### Prerequisites
+
+- Go 1.24 or later
+- golangci-lint (for linting)
+
+### Quick Start
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/jesper/review-extractor.git
+   cd review-extractor
+   ```
+
+2. Run the setup script:
+   ```sh
+   ./bin/setup
+   ```
+   This will:
+   - Download Go dependencies
+   - Install required tools (golangci-lint)
+   - Set up environment variables
+   - Verify the setup
+
+3. Run tests and linting:
+   ```sh
+   ./bin/test
+   ```
+
+### Manual Setup
+
+If you prefer to set up manually:
+
+1. Install golangci-lint:
+   ```sh
+   go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+   ```
+
+2. Make sure `$GOPATH/bin` is in your `PATH`:
+   ```sh
+   export PATH=$PATH:$(go env GOPATH)/bin
+   ```
+
+3. Download dependencies:
+   ```sh
+   go mod download
+   go mod tidy
+   ```
+
+### Running Tests and Linting
+
+To build, lint, and test the project, run:
+
+```sh
+./bin/test
+```
+
+This script will:
+- Build the project
+- Run `golangci-lint` (if installed)
+- Run the tests and generate a coverage report
+
+### Manual Commands
+
+If you prefer to run commands manually:
+
+- Build:
+  ```sh
+  go build ./...
+  ```
+
+- Lint:
+  ```sh
+  golangci-lint run ./...
+  ```
+
+- Test:
+  ```sh
+  go test -v -coverprofile=coverage.out ./...
+  ```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

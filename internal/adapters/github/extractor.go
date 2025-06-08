@@ -130,20 +130,41 @@ func parseGitHubURL(url string) (owner, repo string, err error) {
 
 // extractDiffContext extracts the relevant diff context around a specific line
 func extractDiffContext(diff, filePath string, lineNumber int) string {
+	if diff == "" || filePath == "" || lineNumber <= 0 {
+		return ""
+	}
+
 	// Split diff into files
 	fileDiffs := strings.Split(diff, "diff --git")
 
 	// Find the relevant file diff
 	for _, fileDiff := range fileDiffs {
 		if strings.Contains(fileDiff, filePath) {
-			// Split into lines
-			lines := strings.Split(fileDiff, "\n")
+			// Split into lines and remove empty lines
+			var lines []string
+			for _, line := range strings.Split(fileDiff, "\n") {
+				if line != "" {
+					lines = append(lines, line)
+				}
+			}
 
 			// Find the context around the line
-			start := max(0, lineNumber-3)
-			end := min(len(lines), lineNumber+3)
+			// Note: lineNumber is 1-based, but we need to account for diff headers
+			// and find the actual line in the diff
+			contextStart := max(0, lineNumber-3)
+			contextEnd := min(len(lines), lineNumber+3)
 
-			return strings.Join(lines[start:end], "\n")
+			if contextStart >= len(lines) {
+				return ""
+			}
+
+			// Remove leading spaces from each line
+			var cleanedLines []string
+			for _, line := range lines[contextStart:contextEnd] {
+				cleanedLines = append(cleanedLines, strings.TrimSpace(line))
+			}
+
+			return strings.Join(cleanedLines, "\n")
 		}
 	}
 

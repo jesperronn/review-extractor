@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Build
+printf '\n==> Building...\n'
+go build ./...
+
+# Lint
+printf '\n==> Linting...\n'
+if ! command -v golangci-lint >/dev/null 2>&1; then
+    printf 'golangci-lint not found. Please install it first:\n'
+    printf '  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest\n'
+    exit 1
+fi
+golangci-lint run ./...
+
+# Test
+printf '\n==> Testing...\n'
+go test -v -coverprofile=coverage.out ./...
+
+printf '\nAll checks passed!\n' 

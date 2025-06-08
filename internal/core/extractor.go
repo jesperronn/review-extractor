@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/jesper/review-extractor/pkg/models"
@@ -29,96 +28,77 @@ func NewReviewExtractor(config *models.Config, extractors map[models.Provider]Ex
 	}
 }
 
-// ExtractReviews processes all configured repositories and returns the combined results
-func (re *ReviewExtractor) ExtractReviews(ctx context.Context) (*models.ExtractionResult, error) {
-	var (
-		wg          sync.WaitGroup
-		mu          sync.Mutex
-		allReviews  []models.Review
-		errorChan   = make(chan error, len(re.config.Repositories))
-		reviewsChan = make(chan []models.Review, len(re.config.Repositories))
-	)
+// ExtractReviews extracts reviews from all configured repositories
+func (e *ReviewExtractor) ExtractReviews(ctx context.Context) (*models.ExtractionResult, error) {
+	var allReviews []models.Review
 
-	// Process each repository concurrently
-	for _, repo := range re.config.Repositories {
-		wg.Add(1)
-		go func(repo models.RepositoryConfig) {
-			defer wg.Done()
+	// Process each repository
+	for _, repo := range e.config.Repositories {
+		extractor, ok := e.extractors[repo.Provider]
+		if !ok {
+			return nil, fmt.Errorf("no extractor available for provider: %s", repo.Provider)
+		}
 
-			extractor, exists := re.extractors[repo.Provider]
-			if !exists {
-				errorChan <- fmt.Errorf("no extractor found for provider: %s", repo.Provider)
-				return
-			}
+		reviews, err := extractor.ExtractReviews(ctx, repo.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract reviews from %s: %w", repo.URL, err)
+		}
 
-			reviews, err := extractor.ExtractReviews(ctx, repo.URL)
-			if err != nil {
-				errorChan <- fmt.Errorf("failed to extract reviews from %s: %w", repo.URL, err)
-				return
-			}
-
-			reviewsChan <- reviews
-		}(repo)
-	}
-
-	// Wait for all extractions to complete
-	go func() {
-		wg.Wait()
-		close(errorChan)
-		close(reviewsChan)
-	}()
-
-	// Collect results and errors
-	for reviews := range reviewsChan {
-		mu.Lock()
 		allReviews = append(allReviews, reviews...)
-		mu.Unlock()
-	}
-
-	// Check for errors
-	var errors []error
-	for err := range errorChan {
-		errors = append(errors, err)
-	}
-
-	if len(errors) > 0 {
-		return nil, fmt.Errorf("encountered %d errors during extraction: %v", len(errors), errors)
 	}
 
 	// Generate statistics
 	stats := generateStatistics(allReviews)
 
-	return &models.ExtractionResult{
-		ExtractionDate:        time.Now(),
-		TotalComments:         len(allReviews),
-		RepositoriesProcessed: len(re.config.Repositories),
-		Reviews:               allReviews,
-		Statistics:            stats,
-	}, nil
+	// Create result
+	result := &models.ExtractionResult{
+                Reviews:               allReviews,
+                Statistics:            stats,
+                ExtractedAt:           time.Now(),
+                TotalComments:         len(allReviews),
+                RepositoriesProcessed: len(e.config.Repositories),
+	}
+
+	return result, nil
 }
 
 // generateStatistics analyzes the reviews and returns aggregated statistics
 func generateStatistics(reviews []models.Review) models.Statistics {
-	reviewerCount := make(map[string]int)
-	fileCount := make(map[string]int)
+	reviewerCounts := make(map[string]int)
+	repoCounts := make(map[string]int)
+	prCounts := make(map[int]bool)
+	prSizes := make(map[int]int)
 
 	for _, review := range reviews {
-		reviewerCount[review.CommentAuthor]++
-		fileCount[review.FilePath]++
+		reviewerCounts[review.CommentAuthor]++
+		repoCounts[review.Repository]++
+		prCounts[review.PRID] = true
+		prSizes[review.PRID]++
 	}
 
-	// Get most active reviewers
-	mostActiveReviewers := getTopN(reviewerCount, 5)
+	// Calculate average PR size
+	var totalPRSize int
+	for _, size := range prSizes {
+		totalPRSize += size
+	}
+	averagePRSize := 0.0
+	if len(prCounts) > 0 {
+		averagePRSize = float64(totalPRSize) / float64(len(prCounts))
+	}
 
-	// Get files with most comments
-	filesWithMostComments := getTopN(fileCount, 5)
+	// Calculate review frequency (reviews per PR)
+	reviewFrequency := 0.0
+	if len(prCounts) > 0 {
+		reviewFrequency = float64(len(reviews)) / float64(len(prCounts))
+	}
 
 	return models.Statistics{
-		MostActiveReviewers:   mostActiveReviewers,
-		FilesWithMostComments: filesWithMostComments,
-		// Note: CommonCommentTypes would require NLP analysis
-		// This is a placeholder for future enhancement
-		CommonCommentTypes: []string{},
+		TotalReviews:    len(reviews),
+		TotalPRs:        len(prCounts),
+		TopReviewers:    getTopN(reviewerCounts, 5),
+		TopRepositories: getTopN(repoCounts, 5),
+		AveragePRSize:   averagePRSize,
+		ReviewFrequency: reviewFrequency,
 	}
 }
 
