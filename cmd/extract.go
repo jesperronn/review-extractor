@@ -64,7 +64,9 @@ var extractCmd = &cobra.Command{
 func init() {
 	extractCmd.Flags().StringVar(&configFile, "config", "", "Path to configuration file")
 	extractCmd.Flags().StringVar(&outputFile, "output", "", "Path to output file (overrides config)")
-	extractCmd.MarkFlagRequired("config")
+	if err := extractCmd.MarkFlagRequired("config"); err != nil {
+		panic(err) // or log.Fatal(err) if you prefer
+	}
 }
 
 // NewExtractCommand creates and returns the extract command
