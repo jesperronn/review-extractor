@@ -36,7 +36,7 @@ run_build_step() {
         printf '\n==> Skipping build...\n'
         return
     fi
-    
+
     printf '\n==> Building Go project...\n'
     go build ./...
 }
@@ -47,16 +47,16 @@ run_lint_step() {
         printf '\n==> Skipping linting...\n'
         return
     fi
-    
+
     printf '\n==> Running linter...\n'
-    
+
     if ! command -v golangci-lint >/dev/null 2>&1; then
         printf 'Error: golangci-lint not found.\n'
         printf 'Please install it first:\n'
         printf '  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest\n'
         exit 1
     fi
-    
+
     golangci-lint run ./...
 }
 
@@ -66,7 +66,7 @@ run_test_step() {
         printf '\n==> Skipping testing...\n'
         return
     fi
-    
+
     printf '\n==> Running tests...\n'
     go test -v -coverprofile=coverage.out ./...
 }
@@ -82,7 +82,7 @@ parse_args() {
   run_build=true
   run_lint=true
   run_test=true
-  
+
   # Parse command line arguments
   while [[ $# -gt 0 ]]; do
     case $1 in
@@ -126,7 +126,7 @@ parse_args() {
 # Execute the complete build pipeline
 run_pipeline() {
     printf "🚀 Starting Go project pipeline...\n"
-    
+
     run_build_step
     run_lint_step
     run_test_step
